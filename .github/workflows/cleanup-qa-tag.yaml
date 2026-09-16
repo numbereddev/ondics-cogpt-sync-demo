@@ -1,0 +1,105 @@
+# Cleans up the GHCR image tag when the PR is closed or the "PR: Ready for QA" label is removed.
+name: Cleanup QA GHCR Image
+
+on:
+  pull_request:
+    types: [closed, unlabeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to clean up (e.g., 123)'
+        required: true
+
+jobs:
+  cleanup-manual:
+    name: Delete QA GHCR image tag (manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      packages: write
+    steps:
+      - name: Delete PR tag from GHCR
+        env:
+          GH_TOKEN: ${{ secrets.ALLM_RW_PACKAGES }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          # Determine whether the repository owner is a user or organization.
+          OWNER_TYPE=$(gh api "/users/${OWNER}" --jq '.type')
+
+          echo "Owner: ${OWNER} (${OWNER_TYPE})"
+          echo "Looking for tag: pr-${PR_NUMBER}"
+
+          if [[ "$OWNER_TYPE" == "Organization" ]]; then
+            API_PATH="/orgs/${OWNER}/packages/container/${REPO}/versions"
+          else
+            API_PATH="/users/${OWNER}/packages/container/${REPO}/versions"
+          fi
+
+          echo "Package versions endpoint: ${API_PATH}"
+
+          VERSION_ID=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            --paginate \
+            "$API_PATH" \
+            --jq ".[] | select(.metadata.container.tags[] == \"pr-${PR_NUMBER}\") | .id")
+
+          if [ -n "$VERSION_ID" ]; then
+            echo "Deleting package version $VERSION_ID (tag: pr-${PR_NUMBER})"
+
+            gh api \
+              --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              "${API_PATH}/${VERSION_ID}"
+          else
+            echo "No package found with tag pr-${PR_NUMBER}, skipping cleanup"
+          fi
+
+  cleanup-auto:
+    name: Delete QA GHCR image tag (auto)
+    runs-on: ubuntu-latest
+    if: >-
+      (github.event.action == 'closed' && contains(github.event.pull_request.labels.*.name, 'PR: Ready for QA')) ||
+      (github.event.action == 'unlabeled' && github.event.label.name == 'PR: Ready for QA')
+    permissions:
+      packages: write
+    steps:
+      - name: Delete PR tag from GHCR
+        env:
+          GH_TOKEN: ${{ secrets.ALLM_RW_PACKAGES }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          # Determine whether the repository owner is a user or organization.
+          OWNER_TYPE=$(gh api "/users/${OWNER}" --jq '.type')
+
+          echo "Owner: ${OWNER} (${OWNER_TYPE})"
+          echo "Looking for tag: pr-${PR_NUMBER}"
+
+          if [[ "$OWNER_TYPE" == "Organization" ]]; then
+            API_PATH="/orgs/${OWNER}/packages/container/${REPO}/versions"
+          else
+            API_PATH="/users/${OWNER}/packages/container/${REPO}/versions"
+          fi
+
+          echo "Package versions endpoint: ${API_PATH}"
+
+          VERSION_ID=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            --paginate \
+            "$API_PATH" \
+            --jq ".[] | select(.metadata.container.tags[] == \"pr-${PR_NUMBER}\") | .id" \
+            2>/dev/null || true)
+
+          if [ -n "$VERSION_ID" ]; then
+            echo "Deleting package version $VERSION_ID (tag: pr-${PR_NUMBER})"
+
+            gh api \
+              --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              "${API_PATH}/${VERSION_ID}"
+          else
+            echo "No package found with tag pr-${PR_NUMBER}, skipping cleanup"
+          fi

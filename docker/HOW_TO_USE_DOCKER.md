@@ -1,58 +1,42 @@
-# How to use Dockerized Anything LLM
+# How to use Dockerized CoGPT
 
-Use the Dockerized version of AnythingLLM for a much faster and complete startup of AnythingLLM.
+Use the Dockerized version of CoGPT for a fast and complete setup of CoGPT.
 
 ### Minimum Requirements
 
 > [!TIP]
-> Running AnythingLLM on AWS/GCP/Azure?
-> You should aim for at least 2GB of RAM. Disk storage is proportional to however much data
-> you will be storing (documents, vectors, models, etc). Minimum 10GB recommended.
+> Running CoGPT on AWS/GCP/Azure?
+> We recommend at least 2GB of RAM. Disk storage requirements depend on how much data
+> you store, including documents, vectors, and models. At least 10GB of disk space is recommended.
 
-- `docker` installed on your machine
-- `yarn` and `node` on your machine
-- access to an LLM running locally or remotely
+* `docker` installed on your machine
+* `yarn` and `node` on your machine
+* access to an LLM running locally or remotely
 
-\*AnythingLLM by default uses a built-in vector database powered by [LanceDB](https://github.com/lancedb/lancedb)
+CoGPT uses a built-in vector database powered by [LanceDB](https://github.com/lancedb/lancedb).
 
-\*AnythingLLM by default embeds text on instance privately [Learn More](../server/storage/models/README.md)
-
-## Recommend way to run dockerized AnythingLLM!
+## Recommended way to run CoGPT with Docker
 
 > [!IMPORTANT]
-> If you are running another service on localhost like Chroma, LocalAi, or LMStudio
-> you will need to use http://host.docker.internal:xxxx to access the service from within
-> the docker container using AnythingLLM as `localhost:xxxx` will not resolve for the host system.
+> If you are running another service on your host machine, such as Ollama, Chroma, LocalAI, or LM Studio,
+> you may need to use `http://host.docker.internal:<port>` to access it from inside the Docker container.
 >
-> **Requires** Docker v18.03+ on Win/Mac and 20.10+ on Linux/Ubuntu for host.docker.internal to resolve!
->
-> _Linux_: add `--add-host=host.docker.internal:host-gateway` to docker run command for this to resolve.
->
-> eg: Chroma host URL running on localhost:8000 on host machine needs to be http://host.docker.internal:8000
-> when used in AnythingLLM.
+> On Linux, add `--add-host=host.docker.internal:host-gateway` to the `docker run` command.
 
 > [!TIP]
-> It is best to mount the containers storage volume to a folder on your host machine
-> so that you can pull in future updates without deleting your existing data!
+> Mount the container's storage volume to a directory on your host machine.
+> This allows you to update or recreate the container without losing your existing data.
 
-Pull in the latest image from docker. Supports both `amd64` and `arm64` CPU architectures.
+Pull the latest CoGPT image from GHCR. The image supports both `amd64` and `arm64` CPU architectures.
 
 ```shell
-docker pull mintplexlabs/anythingllm
+docker pull ghcr.io/ondics/cogpt:latest
 ```
 
-<table>
-<tr>
-<th colspan="2">Mount the storage locally and run AnythingLLM in Docker</th>
-</tr>
-<tr>
-<td>
-  Linux/MacOs
-</td>
-<td>
+### Linux / macOS
 
 ```shell
-export STORAGE_LOCATION=$HOME/anythingllm && \
+export STORAGE_LOCATION=$HOME/cogpt && \
 mkdir -p $STORAGE_LOCATION && \
 touch "$STORAGE_LOCATION/.env" && \
 docker run -d --rm -p 3001:3001 \
@@ -60,20 +44,14 @@ docker run -d --rm -p 3001:3001 \
 -v ${STORAGE_LOCATION}:/app/server/storage \
 -v ${STORAGE_LOCATION}/.env:/app/server/.env \
 -e STORAGE_DIR="/app/server/storage" \
-mintplexlabs/anythingllm
+ghcr.io/ondics/cogpt:latest
 ```
 
-</td>
-</tr>
-<tr>
-<td>
-  Windows
-</td>
-<td>
+### Windows
 
 ```powershell
-# Run this in powershell terminal
-$env:STORAGE_LOCATION="$HOME\Documents\anythingllm"; `
+# Run this in PowerShell
+$env:STORAGE_LOCATION="$HOME\Documents\cogpt"; `
 If(!(Test-Path $env:STORAGE_LOCATION)) {New-Item $env:STORAGE_LOCATION -ItemType Directory}; `
 If(!(Test-Path "$env:STORAGE_LOCATION\.env")) {New-Item "$env:STORAGE_LOCATION\.env" -ItemType File}; `
 docker run -d --rm -p 3001:3001 `
@@ -81,129 +59,131 @@ docker run -d --rm -p 3001:3001 `
 -v "$env:STORAGE_LOCATION`:/app/server/storage" `
 -v "$env:STORAGE_LOCATION\.env:/app/server/.env" `
 -e STORAGE_DIR="/app/server/storage" `
-mintplexlabs/anythingllm;
+ghcr.io/ondics/cogpt:latest
 ```
 
-</td>
-</tr>
-<tr>
-<td> Docker Compose</td>
-<td>
-
+### Docker Compose
 
 ```yaml
-version: '3.8'
 services:
-  anythingllm:
-    image: mintplexlabs/anythingllm
-    container_name: anythingllm
+  cogpt:
+    image: ghcr.io/ondics/cogpt:latest
+    container_name: cogpt
     ports:
-    - "3001:3001"
+      - "3001:3001"
     cap_add:
       - SYS_ADMIN
     environment:
-    # Adjust for your environment
+      # Adjust for your environment
       - STORAGE_DIR=/app/server/storage
       - JWT_SECRET="make this a large list of random numbers and letters 20+"
       - LLM_PROVIDER=ollama
-      - OLLAMA_BASE_PATH=http://127.0.0.1:11434
+      - OLLAMA_BASE_PATH=http://host.docker.internal:11434
       - OLLAMA_MODEL_PREF=llama2
       - OLLAMA_MODEL_TOKEN_LIMIT=4096
       - EMBEDDING_ENGINE=ollama
-      - EMBEDDING_BASE_PATH=http://127.0.0.1:11434
+      - EMBEDDING_BASE_PATH=http://host.docker.internal:11434
       - EMBEDDING_MODEL_PREF=nomic-embed-text:latest
       - EMBEDDING_MODEL_MAX_CHUNK_LENGTH=8192
       - VECTOR_DB=lancedb
       - WHISPER_PROVIDER=local
       - TTS_PROVIDER=native
       - PASSWORDMINCHAR=8
-      # Add any other keys here for services or settings
-      # you can find in the docker/.env.example file
+      # Add other configuration options as needed.
+      # See docker/.env.example for additional settings.
     volumes:
-      - anythingllm_storage:/app/server/storage
+      - cogpt_storage:/app/server/storage
     restart: always
 
 volumes:
-  anythingllm_storage:
+  cogpt_storage:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /path/on/local/disk
 ```
 
-  </td>
-</tr>
-</table>
+> [!IMPORTANT]
+> **UID and GID**  
+>  The container uses UID and GID `1000` by default. If your host user's UID or GID differs, you may encounter permission issues when mounting local storage.
 
-Go to `http://localhost:3001` and you are now using AnythingLLM! All your data and progress will persist between
-container rebuilds or pulls from Docker Hub.
+Open http://localhost:3001 in your browser to access CoGPT.
+
+Your data is stored in the mounted Docker volume and persists across container restarts and image updates.
 
 ## How to use the user interface
 
-- To access the full application, visit `http://localhost:3001` in your browser.
+Open http://localhost:3001 in your browser.
 
-## About UID and GID in the ENV
+## Build locally from source
 
-- The UID and GID are set to 1000 by default. This is the default user in the Docker container and on most host operating systems. If there is a mismatch between your host user UID and GID and what is set in the `.env` file, you may experience permission issues.
+For development or when you need to build the image locally:
 
-## Build locally from source _not recommended for casual use_
+> [!IMPORTANT]
+> **UID and GID**  
+>  The container uses UID and GID `1000` by default. If your host user's UID or GID differs, you may encounter permission issues when mounting local storage.
 
-- `git clone` this repo and `cd anything-llm` to get to the root directory.
-- `touch server/storage/anythingllm.db` to create empty SQLite DB file.
-- `cd docker/`
-- `cp .env.example .env` **you must do this before building**
-- `docker-compose up -d --build` to build the image - this will take a few moments.
+```bash
+git clone github.com/ondics/cogpt
+cd cogpt
 
-Your docker host will show the image as online once the build process is completed. This will build the app to `http://localhost:3001`.
+touch server/storage/anythingllm.db
 
-## Integrations and one-click setups
+cd docker
+cp .env.example .env
 
-The integrations below are templates or tooling built by the community to make running the docker experience of AnythingLLM easier.
+docker compose up -d --build
+```
 
-### Use the Midori AI Subsystem to Manage AnythingLLM
+Once the build completes, CoGPT will be available at:
 
-Follow the setup found on [Midori AI Subsystem Site](https://io.midori-ai.xyz/subsystem/manager/) for your host OS
-After setting that up install the AnythingLLM docker backend to the Midori AI Subsystem.
-
-Once that is done, you are all set!
+http://localhost:3001
 
 ## Common questions and fixes
 
-### Cannot connect to service running on localhost!
+### Cannot connect to a service running on localhost
 
-If you are in docker and cannot connect to a service running on your host machine running on a local interface or loopback:
+Services running on the host, such as Ollama, may not be reachable from inside the Docker container through `localhost` or `127.0.0.1`.
 
-- `localhost`
-- `127.0.0.1`
-- `0.0.0.0`
+On macOS and Windows, use:
 
-> [!IMPORTANT]
-> On linux `http://host.docker.internal:xxxx` does not work.
-> Use `http://172.17.0.1:xxxx` instead to emulate this functionality.
-
-Then in docker you need to replace that localhost part with `host.docker.internal`. For example, if running Ollama on the host machine, bound to http://127.0.0.1:11434 you should put `http://host.docker.internal:11434` into the connection URL in AnythingLLM.
-
-
-### API is not working, cannot login, LLM is "offline"?
-
-You are likely running the docker container on a remote machine like EC2 or some other instance where the reachable URL
-is not `http://localhost:3001` and instead is something like `http://193.xx.xx.xx:3001` - in this case all you need to do is add the following to your `frontend/.env.production` before running `docker-compose up -d --build`
-
-```
-# frontend/.env.production
-GENERATE_SOURCEMAP=false
-VITE_API_BASE="http://<YOUR_REACHABLE_IP_ADDRESS>:3001/api"
+```text
+http://host.docker.internal:<port>
 ```
 
-For example, if the docker instance is available on `192.186.1.222` your `VITE_API_BASE` would look like `VITE_API_BASE="http://192.186.1.222:3001/api"` in `frontend/.env.production`.
+For example:
+
+```text
+http://host.docker.internal:11434
+```
+
+On Linux, add the host gateway when starting the container:
+
+```shell
+docker run --add-host=host.docker.internal:host-gateway ...
+```
+
+Then use `host.docker.internal` instead of `localhost` in the service URL.
+
+### API is not working or the application cannot connect
+
+When running CoGPT on a remote machine, `localhost` may not be the correct address for clients connecting to the application.
+
+Make sure CoGPT is accessible on the required network interface and that port `3001` is exposed by your host, firewall, or cloud security group.
 
 ### Having issues with Ollama?
 
-If you are getting errors like `llama:streaming - could not stream chat. Error: connect ECONNREFUSED 172.17.0.1:11434` then visit the README below.
+Make sure Ollama is reachable from the Docker container.
 
-[Fix common issues with Ollama](https://docs.anythingllm.com/ollama-connection-troubleshooting)
+For a host installation, the connection URL will typically be:
 
-### Still not working?
+```text
+http://host.docker.internal:11434
+```
 
-[Ask for help on Discord](https://discord.gg/6UyHPeGZAC)
+On Linux, ensure that `host.docker.internal` is configured with:
+
+```shell
+--add-host=host.docker.internal:host-gateway
+```
+
+### Still having issues?
+
+Open an issue in the CoGPT repository with your Docker version, operating system, architecture, and relevant logs.
