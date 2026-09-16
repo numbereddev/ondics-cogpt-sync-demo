@@ -1,0 +1,30 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch AnythingLLM upstream
+        run: |
+          git remote add upstream https://github.com/Mintplex-Labs/anything-llm.git
+          git fetch upstream master
+
+      - name: Update upstream branch
+        run: |
+          git checkout -B upstream upstream/master
+          git push origin upstream --force
