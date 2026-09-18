@@ -161,11 +161,11 @@ const KEY_MAPPING = {
   },
   KoboldCPPTokenLimit: {
     envKey: "KOBOLD_CPP_MODEL_TOKEN_LIMIT",
-    checks: [nonZero],
+    checks: [],
   },
   KoboldCPPMaxTokens: {
     envKey: "KOBOLD_CPP_MAX_TOKENS",
-    checks: [nonZero],
+    checks: [],
   },
 
   // Text Generation Web UI Settings
@@ -497,6 +497,17 @@ const KEY_MAPPING = {
   OpenRouterTimeout: {
     envKey: "OPENROUTER_TIMEOUT_MS",
     checks: [],
+  },
+  OpenRouterServiceTier: {
+    envKey: "OPENROUTER_SERVICE_TIER",
+    checks: [
+      (input) => {
+        const { OpenRouterLLM } = require("../AiProviders/openRouter");
+        return OpenRouterLLM.SERVICE_TIERS.includes(input)
+          ? null
+          : `Invalid service tier. Must be one of: ${OpenRouterLLM.SERVICE_TIERS.join(", ")}.`;
+      },
+    ],
   },
 
   // Novita Options
